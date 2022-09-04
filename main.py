@@ -3,6 +3,7 @@ import time
 import socket
 import os
 import netifaces
+import nmap
 from rich import print as rprint
 from rich import box
 from rich.console import Console, group
@@ -29,6 +30,20 @@ out_network = dict()
 #     'wl': True,
 #     'ww': True
 # }
+
+class Network():
+    def __init__(self):
+        self.gateways = None
+        self. hw_addr = None
+        self.iface_addrs = None
+        self.iface_broadcasts = None
+        self.iface_netmask = None
+
+class Device():
+    def __init__(self) -> None:
+        self.iface = None
+        self.ip = None
+        self.mac_addr = None
 
 
 console = Console()
@@ -93,7 +108,21 @@ def network_info():
             broad = "None"
         print("{:<15} {:<25} {:<15} {:<15} {:<15}".format(k, mac, ip, broad, netmask))
     print("\n")
-        
+
+def OSfingerprinter():
+    pass
+
+def nmapScanner(addrs, ports):
+    """
+    Receives the addresses and ports to scan, and returns a dictionary of open ports
+    """
+    scanner = nmap.PortScanner()
+    scanner.scan(addrs, ports)
+    for host in scanner.all_hosts():
+        if not scanner[host].hostname():
+            print(f"The host's IP address is {host} and its hostname was not found")
+        else:
+            print(f"The host's IP address is {host} and its hostname is {scanner[host].all_hosts()}")
 
 def ui():
     rprint("\n")
