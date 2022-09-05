@@ -1,35 +1,83 @@
-from os import link
-import time
 import socket
-import os
 import netifaces
 import nmap
 from rich import print as rprint
-from rich import box
-from rich.console import Console, group
+from rich.console import Console
 from rich.prompt import Prompt
-from rich.panel import Panel
 from rich.padding import Padding
-from rich.table import Table
 from rich.prompt import Confirm
-
-debug = True
+import optparse
+from socket import *
+import inquirer
+import sys
+from datetime import datetime
+from rich.progress import Progress
+from scapy.all import srp, Ether, ARP, conf
 
 __author__ = "Sophia Kerber"
 __license__ = "MIT"
+
+debug = True
+console = Console()
+
+def connScan(tgtHost, tgtPort):
+    try:
+        connSkt = socket(AF_INET, SOCK_STREAM)
+        connSkt.connect((tgtHost, tgtPort))
+        print('[+]%d/tcp open'% tgtPort)
+        connSkt.close()
+    except:
+        print('[-]%d/tcp closed'% tgtPort)
+
+def portScan(tgtHost, tgtPorts):
+    try:
+        tgtIP = gethostbyname(tgtHost)
+    except:
+        print("[-] Cannot resolve '%s': Unknown host"% tgtPort)
+        return
+    try:
+        tgtName = gethostbyaddr(tgtIP)
+        print('\n[+] Scan results for: ' + tgtName)
+    except:
+        print('\n[+] Scan results for: ' + tgtIP[0])
+    setdefaulttimeout()
+    for tgtPort in tgtPorts:
+        print('Scanning port ' + tgtPort)
+        connScan(tgtHost, int(tgtPort))
+    
+def parserPortScanner():
+    # Creating portScanner
+    parser = optparse.OptionParser('usage %prog -H' + '<target host> -p <target port>')
+    parser.add_option('-H', dest='tgtHost', type='string', help='Specify target host')
+    parser.add_option('-p', dest='tgtPort', type='string', help='Specify target port')
+    (options, args) = parser.parse_args()
+    tgtPort = options.tgtPort
+    tgtHost = options.tgtHost
+    if (tgtHost == None) | (tgtPort == None):
+        print(parser.usage)
+        exit(0)
+
+def arp_scan(interface, ips):
+    print("[*] Scanning")
+    with Progress(transient=True) as progress:
+        task = progress.add_task("Working", total=100)
+        start_time = datetime.now()
+        conf.verb = 0
+        ans, unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst = ips), \
+             timeout = 2, iface=interface, inter=0.1)
+        print("MAC - IP\n")
+        for snd, rcv in ans:
+            rcv.print(f"{Ether.src} - {ARP.psrc}")
+        stop_time = datetime.now()
+        total_time = stop_time - start_time
+        print("\n[*] Scan Complete!")
+        print(f"[*] Scan Duration: {total_time}")
 
 out_interfaces = dict()
 out_addrs = dict()
 out_network = dict()
 
-# predictable_iface_names = ['eth', 'en', 'wl']
-
-# iface_to_ip_dict = {
-#     'eth': False,
-#     'en': False,
-#     'wl': True,
-#     'ww': True
-# }
+common_ports = {}
 
 class Network():
     def __init__(self):
@@ -44,9 +92,6 @@ class Device():
         self.iface = None
         self.ip = None
         self.mac_addr = None
-
-
-console = Console()
 
 def get_interfaces():
     interfaces = netifaces.interfaces()
@@ -88,9 +133,12 @@ def help():
     pass
 
 def exploit():
+    print("Exploit chosen")
     pass
 
 def network():
+    print("On network")
+    
     pass
 
 def network_info():
@@ -124,6 +172,9 @@ def nmapScanner(addrs, ports):
         else:
             print(f"The host's IP address is {host} and its hostname is {scanner[host].all_hosts()}")
 
+def portscanner():
+    pass
+
 def ui():
     rprint("\n")
     console.rule("[bold red]SOPA'S PORT SCANNER", style="bold red")
@@ -131,22 +182,31 @@ def ui():
     rprint(Padding("[DISCLAIMER]\nUse at your own risk", (2, 4), style='light_sea_green', expand=True))
     if not debug:
         fastscan = Prompt.ask("Would you like to do a fast system scan?", choices=["Y", "n"])
+        
     fastscan = "Y"
 
     if fastscan == "Y":
         network_info()
-        options = ["q", "e", "n"]
-        next = Prompt.ask("What next? [Quit (q), Exploitation (e), Network (n)]")
-        while next not in options:
-            if next == "q":
-                quit()
-            if next == "e":
-                exploit()
-            if next == "n":
-                network()
-            else:
-                print("Please choose one of the options")
-                next = Prompt.ask("What next? [Quit (q), Exploitation (e), Network (n)]")
+        questions = [
+        inquirer.List(
+            "Options",
+            message="What do you want to do next?",
+            choices=["Quit", "Attack", "Explore Network"],
+            ),
+        ]
+
+        answers = inquirer.prompt(questions)
+
+        
+        if answers["Options"] == "Quit":
+            quit()
+        if answers["Options"] == "Attack":
+            exploit()
+        if answers["Options"] == "Explore Network":
+            network()
+        else:
+            print("Please choose one of the options")
+            next = Prompt.ask("What next? [Quit (q), Exploitation (e), Network (n)]")
         knowledgeable = Confirm.ask("If you choose this option, you are liable for your own actions. \nBeware of the networks you are exploiting: you must have previous consent of the system/network/app admin. \nWould you like to proceed?")
         assert knowledgeable
     pass
@@ -155,3 +215,4 @@ def ui():
 
 if __name__ == "__main__":
     ui()
+    
