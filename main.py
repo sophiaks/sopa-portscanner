@@ -1,4 +1,5 @@
 import socket
+from tokenize import String
 import netifaces
 import nmap
 from rich import print as rprint
@@ -20,16 +21,23 @@ __license__ = "MIT"
 debug = True
 console = Console()
 
+out_interfaces = dict()
+out_addrs = dict()
+out_network = dict()
+common_ports = dict()
+
+ip_list = []
+
 def connScan(tgtHost, tgtPort):
     try:
         connSkt = socket(AF_INET, SOCK_STREAM)
         connSkt.connect((tgtHost, tgtPort))
-        print('[+]%d/tcp open'% tgtPort)
+        print('[+] %d/tcp open'% tgtPort)
         connSkt.close()
     except:
-        print('[-]%d/tcp closed'% tgtPort)
+        print('[-] %d/tcp closed'% tgtPort)
 
-def portScan(tgtHost, tgtPorts):
+def portScan(tgtHost: String, tgtPorts: list):
     try:
         tgtIP = gethostbyname(tgtHost)
     except:
@@ -37,12 +45,12 @@ def portScan(tgtHost, tgtPorts):
         return
     try:
         tgtName = gethostbyaddr(tgtIP)
-        print('\n[+] Scan results for: ' + tgtName)
+        print('\n[+] Scan results for: ' + tgtName.tostring())
     except:
         print('\n[+] Scan results for: ' + tgtIP[0])
-    setdefaulttimeout()
+    setdefaulttimeout(10)
     for tgtPort in tgtPorts:
-        print('Scanning port ' + tgtPort)
+        print('\nScanning port ' + str(tgtPort))
         connScan(tgtHost, int(tgtPort))
     
 def parserPortScanner():
@@ -58,7 +66,7 @@ def parserPortScanner():
         exit(0)
 
 def arp_scan(interface, ips):
-    print("[*] Scanning")
+    print("\n[*] Scanning")
     with Progress(transient=True) as progress:
         task = progress.add_task("Working", total=100)
         start_time = datetime.now()
@@ -67,17 +75,14 @@ def arp_scan(interface, ips):
              timeout = 2, iface=interface, inter=0.1)
         print("MAC - IP\n")
         for snd, rcv in ans:
-            rcv.print(f"{Ether.src} - {ARP.psrc}")
+            print(Ether.src)
+            print(ARP.psrc)
+            rcv.sprintf("%Ether.src% - %ARP.psrc%")
         stop_time = datetime.now()
         total_time = stop_time - start_time
         print("\n[*] Scan Complete!")
         print(f"[*] Scan Duration: {total_time}")
 
-out_interfaces = dict()
-out_addrs = dict()
-out_network = dict()
-
-common_ports = {}
 
 class Network():
     def __init__(self):
@@ -142,6 +147,9 @@ def network():
     pass
 
 def network_info():
+    '''
+    Prints information for each interface, such as MAC address, IP, boradcast and netmask
+    '''
     interfaces = get_interfaces()
     gws = get_gateways()
     for iface in interfaces:
@@ -156,6 +164,7 @@ def network_info():
             broad = "None"
         print("{:<15} {:<25} {:<15} {:<15} {:<15}".format(k, mac, ip, broad, netmask))
     print("\n")
+
 
 def OSfingerprinter():
     pass
@@ -187,7 +196,37 @@ def ui():
 
     if fastscan == "Y":
         network_info()
-        questions = [
+
+        questionsInitial = [
+        inquirer.List(
+            "Initial",
+            message="What would you like to use?",
+            choices=["Portscanner", "Fingerprinter", "Network Explorer"],
+            ),
+        ]
+
+        answersInitial = inquirer.prompt(questionsInitial)
+
+        if answersInitial["Initial"] == "Portscanner":
+            rprint("[*] Scanning ports for every interface")
+            interfaces = get_interfaces()
+            print("Please enter the IP you'd like to scan:")
+            ip = input()
+            print("Please enter the ports you'd like to scan:")
+            ports = input()
+            #ip_list.append(ip)
+            #print(ip_list)
+            portList = ports.split(',')
+            portScan(ip, portList)
+            #parserPortScanner()
+        if answersInitial["Initial"] == "Fingerprinter":
+            pass
+        if answersInitial["Initial"] == "Network Explorer":
+            pass
+        else:
+            print("\nPlease choose one of the options")
+
+        questionsOptions = [
         inquirer.List(
             "Options",
             message="What do you want to do next?",
@@ -195,9 +234,8 @@ def ui():
             ),
         ]
 
-        answers = inquirer.prompt(questions)
+        answers = inquirer.prompt(questionsOptions)
 
-        
         if answers["Options"] == "Quit":
             quit()
         if answers["Options"] == "Attack":
@@ -206,7 +244,7 @@ def ui():
             network()
         else:
             print("Please choose one of the options")
-            next = Prompt.ask("What next? [Quit (q), Exploitation (e), Network (n)]")
+        
         knowledgeable = Confirm.ask("If you choose this option, you are liable for your own actions. \nBeware of the networks you are exploiting: you must have previous consent of the system/network/app admin. \nWould you like to proceed?")
         assert knowledgeable
     pass
