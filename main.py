@@ -14,6 +14,8 @@ import sys
 from datetime import datetime
 from rich.progress import Progress
 from scapy.all import srp, Ether, ARP, conf
+import ipaddress
+from socket import getservbyname, getservbyport
 
 __author__ = "Sophia Kerber"
 __license__ = "MIT"
@@ -32,27 +34,33 @@ def connScan(tgtHost, tgtPort):
     try:
         connSkt = socket(AF_INET, SOCK_STREAM)
         connSkt.connect((tgtHost, tgtPort))
-        print('[+] %d/tcp open'% tgtPort)
+        print('[+] %d/tcp open\n'% tgtPort)
         connSkt.close()
     except:
-        print('[-] %d/tcp closed'% tgtPort)
+        print('[-] %d/tcp closed\n'% tgtPort)
+    print("-------------------------------")
+def portScan(tgtHosts: String, tgtPorts: list):
+    for tgtHost in tgtHosts:
+        try:
+            tgtIP = gethostbyname(tgtHost)
+        except:
+            print("[-] Cannot resolve '%s': Unknown host"% tgtHost)
+            return
+        try:
+            tgtName = gethostbyaddr(tgtIP)
+            #print('\n[+] Scan results for: ' + tgtName.tostring())
+            console.rule('\n[+] Scan results for: ' + tgtName.tostring())
+        except:
+            #print('\n[+] Scan results for: ' + tgtIP)
+            console.rule('\n[+] Scan results for: ' + tgtIP)
+        setdefaulttimeout(10)
+        for tgtPort in tgtPorts:
+            try:
+                print('\nScanning port ' + str(tgtPort) + ' - ' + getservbyport(int(tgtPort)))
+                connScan(tgtHost, int(tgtPort))
+            except:
+                print("Please specify protocol")
 
-def portScan(tgtHost: String, tgtPorts: list):
-    try:
-        tgtIP = gethostbyname(tgtHost)
-    except:
-        print("[-] Cannot resolve '%s': Unknown host"% tgtPort)
-        return
-    try:
-        tgtName = gethostbyaddr(tgtIP)
-        print('\n[+] Scan results for: ' + tgtName.tostring())
-    except:
-        print('\n[+] Scan results for: ' + tgtIP[0])
-    setdefaulttimeout(10)
-    for tgtPort in tgtPorts:
-        print('\nScanning port ' + str(tgtPort))
-        connScan(tgtHost, int(tgtPort))
-    
 def parserPortScanner():
     # Creating portScanner
     parser = optparse.OptionParser('usage %prog -H' + '<target host> -p <target port>')
@@ -186,51 +194,70 @@ def portscanner():
 
 def ui():
     rprint("\n")
-    console.rule("[bold red]SOPA'S PORT SCANNER", style="bold red")
+    console.rule("[bold blue]SOPA'S PORT SCANNER", style="bold blue")
+    rprint("\n")
     
-    rprint(Padding("[DISCLAIMER]\nUse at your own risk", (2, 4), style='light_sea_green', expand=True))
-    if not debug:
-        fastscan = Prompt.ask("Would you like to do a fast system scan?", choices=["Y", "n"])
+    fastscan = Prompt.ask("Would you like to do a fast network scan for interfaces?", choices=["y", "n"])
         
-    fastscan = "Y"
+    rprint("\n")
 
-    if fastscan == "Y":
+    if fastscan == "y":
         network_info()
+        answersInitial = {}
+        answersInitial["Initial"] = None
+        while answersInitial["Initial"] != "Quit":
+            questionsInitial = [
+            inquirer.List(
+                "Initial",
+                message="What would you like to use?",
+                #choices=["Portscanner", "Fingerprinter", "Network Explorer", "Quit"],
+                choices=["Portscanner", "Quit"],
+                ),
+            ]
 
-        questionsInitial = [
-        inquirer.List(
-            "Initial",
-            message="What would you like to use?",
-            choices=["Portscanner", "Fingerprinter", "Network Explorer"],
-            ),
-        ]
+            answersInitial = inquirer.prompt(questionsInitial)
 
-        answersInitial = inquirer.prompt(questionsInitial)
+            if answersInitial["Initial"] == "Portscanner":
+                rprint("[*] Scanning ports for every interface")
+                interfaces = get_interfaces()
 
-        if answersInitial["Initial"] == "Portscanner":
-            rprint("[*] Scanning ports for every interface")
-            interfaces = get_interfaces()
-            print("Please enter the IP you'd like to scan:")
-            ip = input()
-            print("Please enter the ports you'd like to scan:")
-            ports = input()
-            #ip_list.append(ip)
-            #print(ip_list)
-            portList = ports.split(',')
-            portScan(ip, portList)
-            #parserPortScanner()
-        if answersInitial["Initial"] == "Fingerprinter":
-            pass
-        if answersInitial["Initial"] == "Network Explorer":
-            pass
-        else:
-            print("\nPlease choose one of the options")
+                # IPS
+                print("Please enter the IP or IPs you'd like to scan: (ex.: <192.168.2.1, 127.0.0.1> or 192.168.2.0/28)")
+                #ips = '192.168.0.1, 127.0.0.1'
+                ips = input()
+                if '/' in ips:
+                    ip_list = [str(x) for x in ipaddress.ip_network(ips).hosts()]
+                else: 
+                    ip_list = ips.split(',')
+                if len(ip_list) == 0:
+                    print("Please enter one or more IPs")
+
+                # PORTS    
+                print("Please enter the ports you'd like to scan: (ex.: 22, 200, 2342 or 22-100)")
+                ports = input()
+                if '-' in ports:
+                    portBorders = ports.split('-')
+                    portList = range(int(portBorders[0]), int(portBorders[1])+1)
+                else:
+                    portList = ports.split(',')
+                if len(portList) == 0:
+                    print("Please enter one or more ports")
+                portScan(ip_list, portList)
+            if answersInitial["Initial"] == "Quit":
+                quit()
+            # if answersInitial["Initial"] == "Fingerprinter":
+            #     pass
+            # if answersInitial["Initial"] == "Network Explorer":
+            #     pass
+            else:
+                print("\nPlease choose one of the options")
 
         questionsOptions = [
         inquirer.List(
             "Options",
             message="What do you want to do next?",
-            choices=["Quit", "Attack", "Explore Network"],
+            #choices=["Quit", "Attack", "Explore Network"],
+            choices=["Quit", "Explore Network"],
             ),
         ]
 
@@ -238,15 +265,15 @@ def ui():
 
         if answers["Options"] == "Quit":
             quit()
-        if answers["Options"] == "Attack":
-            exploit()
+        # if answers["Options"] == "Attack":
+        #     exploit()
         if answers["Options"] == "Explore Network":
             network()
         else:
             print("Please choose one of the options")
         
-        knowledgeable = Confirm.ask("If you choose this option, you are liable for your own actions. \nBeware of the networks you are exploiting: you must have previous consent of the system/network/app admin. \nWould you like to proceed?")
-        assert knowledgeable
+        # knowledgeable = Confirm.ask("If you choose this option, you are liable for your own actions. \nBeware of the networks you are exploiting: you must have previous consent of the system/network/app admin. \nWould you like to proceed?")
+        # assert knowledgeable
     pass
 
 
