@@ -91,6 +91,7 @@ def arp_scan(interface, ips):
         print("\n[*] Scan Complete!")
         print(f"[*] Scan Duration: {total_time}")
 
+def shadowAnalysis():
 
 class Network():
     def __init__(self):
@@ -274,6 +275,7 @@ def ui():
         
         # knowledgeable = Confirm.ask("If you choose this option, you are liable for your own actions. \nBeware of the networks you are exploiting: you must have previous consent of the system/network/app admin. \nWould you like to proceed?")
         # assert knowledgeable
+        
     pass
 
 
